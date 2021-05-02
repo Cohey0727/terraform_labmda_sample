@@ -1,5 +1,6 @@
-import os
+import requests
 
 
 def handler(*args, **kwargs):
-    print('Hello')
+    res = requests.get('https://api.github.com')
+    return res.status_code
