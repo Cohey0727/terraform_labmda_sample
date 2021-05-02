@@ -3,7 +3,7 @@
 ## Terraform Apply
 
 ### bucket名を変更する
-[main.tfの11行目](main.tf)
+[main.tfの11行目と14行目](main.tf)
 
 
 ### terraform apply
