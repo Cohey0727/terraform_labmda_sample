@@ -1,24 +1,24 @@
+# main.tf
+# providerの宣言
 provider "aws" {
-  #　Access keyを使っても酔いが、AWSのProfileの方が便利且つ、Secret Access Keyを間違ってGitにコミットしてしまう恐れがなく安全。
-  # access_key = var.aws_access_key
-  # secret_key = var.aws_secret_key
-
   region  = "ap-northeast-1"
   profile = "default"
 }
 
+# S3バケットを生成
+# CI/CD側でlambdaのソースコードを格納するための箱
 resource "aws_s3_bucket" "test_bucket" {
   bucket = "okamoto-tf-test-bucket"
   acl    = "private"
   tags = {
-    Name        = "okamoto-tf-test-bucket"
-    Environment = "Dev"
+    Name = "okamoto-tf-test-bucket"
   }
   versioning {
-    enabled = true
+    enabled = false # 本番運用する場合はtrue
   }
 }
 
+# ロールを生成
 resource "aws_iam_role" "lambda" {
   name               = "iam_for_lambda"
   assume_role_policy = <<EOF
@@ -38,30 +38,32 @@ resource "aws_iam_role" "lambda" {
 EOF
 }
 
-data "archive_file" "dotfiles" {
+# 初回のみ利用する空のLambdaのファイルを生成
+data "archive_file" "initial_lambda_package" {
   type        = "zip"
   output_path = "${path.module}/.temp_files/lambda.zip"
   source {
-    content  = "import os"
+    content  = "# empty"
     filename = "main.py"
   }
 }
 
+# 生成した空のLambdaのファイルをS3にアップロード
 resource "aws_s3_bucket_object" "lambda_file" {
   bucket = aws_s3_bucket.test_bucket.id
   key    = "initial.zip"
-  source = "${path.module}/files/lambda.zip"
+  source = "${path.module}/.temp_files/lambda.zip"
 }
 
-
+# Lambda関数を生成
+# ソースコードは空のLambdaのファイルのS3を参照
 resource "aws_lambda_function" "lambda_test" {
-  function_name     = "lambda_test"
-  role              = aws_iam_role.lambda.arn
-  handler           = "main.handler"
-  runtime           = "python3.8"
-  timeout           = 120
-  publish           = true
-  s3_bucket         = aws_s3_bucket.test_bucket.id
-  s3_key            = aws_s3_bucket_object.lambda_file.id
+  function_name = "lambda_test"
+  role          = aws_iam_role.lambda.arn
+  handler       = "main.handler"
+  runtime       = "python3.8"
+  timeout       = 120
+  publish       = true
+  s3_bucket     = aws_s3_bucket.test_bucket.id
+  s3_key        = aws_s3_bucket_object.lambda_file.id
 }
-
